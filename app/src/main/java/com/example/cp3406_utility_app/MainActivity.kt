@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -31,9 +32,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -41,6 +42,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.cp3406_utility_app.ui.CurrencyUiState
+import com.example.cp3406_utility_app.ui.CurrencyViewModel
 import com.example.cp3406_utility_app.ui.theme.CP3406_Utility_AppTheme
 import java.text.NumberFormat
 import java.util.Locale
@@ -100,35 +104,12 @@ private val currencyLabels = mapOf(
     "PHP" to "Philippine peso"
 )
 
-private val usdValuePerUnit = mapOf(
-    "AUD" to 0.66,
-    "USD" to 1.00,
-    "CNY" to 0.14,
-    "SGD" to 0.74,
-    "EUR" to 1.08,
-    "JPY" to 0.0064,
-    "GBP" to 1.27,
-    "CAD" to 0.73,
-    "NZD" to 0.61,
-    "HKD" to 0.128,
-    "KRW" to 0.00073,
-    "THB" to 0.027,
-    "MYR" to 0.21,
-    "IDR" to 0.000061,
-    "INR" to 0.012,
-    "PHP" to 0.017
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CurrencyTravelHelperApp() {
+    val currencyViewModel: CurrencyViewModel = viewModel(factory = CurrencyViewModel.Factory)
+    val uiState by currencyViewModel.uiState.collectAsState()
     var selectedTab by rememberSaveable { mutableStateOf(AppTab.Currency) }
-    var amountText by rememberSaveable { mutableStateOf("100") }
-    var baseCurrency by rememberSaveable { mutableStateOf("AUD") }
-    var decimalPlaces by rememberSaveable { mutableStateOf(2) }
-    var targetCurrencies by remember {
-        mutableStateOf(setOf("USD", "CNY", "SGD", "JPY", "EUR", "GBP"))
-    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -161,29 +142,19 @@ fun CurrencyTravelHelperApp() {
     ) { innerPadding ->
         when (selectedTab) {
             AppTab.Currency -> CurrencyScreen(
-                amountText = amountText,
-                baseCurrency = baseCurrency,
-                targetCurrencies = targetCurrencies,
-                decimalPlaces = decimalPlaces,
-                onAmountChange = { amountText = it.cleanCurrencyInput() },
-                onBaseCurrencyChange = { baseCurrency = it },
-                onQuickAmountSelected = { amountText = it },
+                uiState = uiState,
+                onAmountChange = currencyViewModel::updateAmount,
+                onBaseCurrencyChange = currencyViewModel::updateBaseCurrency,
+                onQuickAmountSelected = currencyViewModel::updateAmount,
+                onRefreshRates = currencyViewModel::refreshRates,
                 modifier = Modifier.padding(innerPadding)
             )
 
             AppTab.Settings -> SettingsScreen(
-                baseCurrency = baseCurrency,
-                targetCurrencies = targetCurrencies,
-                decimalPlaces = decimalPlaces,
-                onBaseCurrencyChange = { baseCurrency = it },
-                onTargetCurrencyToggle = { currency ->
-                    targetCurrencies = if (currency in targetCurrencies) {
-                        targetCurrencies - currency
-                    } else {
-                        targetCurrencies + currency
-                    }
-                },
-                onDecimalPlacesChange = { decimalPlaces = it },
+                uiState = uiState,
+                onBaseCurrencyChange = currencyViewModel::updateBaseCurrency,
+                onTargetCurrencyToggle = currencyViewModel::toggleTargetCurrency,
+                onDecimalPlacesChange = currencyViewModel::updateDecimalPlaces,
                 modifier = Modifier.padding(innerPadding)
             )
         }
@@ -192,17 +163,15 @@ fun CurrencyTravelHelperApp() {
 
 @Composable
 private fun CurrencyScreen(
-    amountText: String,
-    baseCurrency: String,
-    targetCurrencies: Set<String>,
-    decimalPlaces: Int,
+    uiState: CurrencyUiState,
     onAmountChange: (String) -> Unit,
     onBaseCurrencyChange: (String) -> Unit,
     onQuickAmountSelected: (String) -> Unit,
+    onRefreshRates: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val amount = amountText.toDoubleOrNull() ?: 0.0
-    val visibleTargets = targetCurrencies.filter { it != baseCurrency }
+    val amount = uiState.amountText.toDoubleOrNull() ?: 0.0
+    val visibleTargets = uiState.visibleTargetCurrencies
 
     Column(
         modifier = modifier
@@ -233,13 +202,13 @@ private fun CurrencyScreen(
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 CurrencyPickerRow(
-                    selectedCurrency = baseCurrency,
+                    selectedCurrency = uiState.baseCurrency,
                     onCurrencyClick = onBaseCurrencyChange
                 )
                 OutlinedTextField(
-                    value = amountText,
+                    value = uiState.amountText,
                     onValueChange = onAmountChange,
-                    label = { Text("Amount in $baseCurrency") },
+                    label = { Text("Amount in ${uiState.baseCurrency}") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth()
@@ -250,7 +219,7 @@ private fun CurrencyScreen(
                 ) {
                     listOf("50", "100", "500").forEach { quickAmount ->
                         Button(onClick = { onQuickAmountSelected(quickAmount) }) {
-                            Text("$baseCurrency $quickAmount")
+                            Text("${uiState.baseCurrency} $quickAmount")
                         }
                     }
                 }
@@ -276,33 +245,20 @@ private fun CurrencyScreen(
         } else {
             visibleTargets.forEach { target ->
                 CurrencyResultCard(
-                    baseCurrency = baseCurrency,
+                    baseCurrency = uiState.baseCurrency,
                     targetCurrency = target,
                     amount = amount,
-                    decimalPlaces = decimalPlaces
+                    decimalPlaces = uiState.decimalPlaces,
+                    rate = uiState.rates[target],
+                    isLoading = uiState.isLoading
                 )
             }
         }
 
-        OutlinedCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = "Rate source",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "Demo rates are used in this first version. Retrofit API integration is planned next.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
+        RateSourceCard(
+            uiState = uiState,
+            onRefreshRates = onRefreshRates
+        )
     }
 }
 
@@ -312,11 +268,10 @@ private fun CurrencyResultCard(
     targetCurrency: String,
     amount: Double,
     decimalPlaces: Int,
+    rate: Double?,
+    isLoading: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val convertedAmount = convertCurrency(amount, baseCurrency, targetCurrency)
-    val oneUnitRate = convertCurrency(1.0, baseCurrency, targetCurrency)
-
     OutlinedCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp)
@@ -339,14 +294,26 @@ private fun CurrencyResultCard(
                     )
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = formatCurrency(convertedAmount, targetCurrency, decimalPlaces),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+                if (rate != null) {
+                    Text(
+                        text = formatCurrency(amount * rate, targetCurrency, decimalPlaces),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                } else {
+                    Text(
+                        text = if (isLoading) "Loading" else "Unavailable",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
             Text(
-                text = "1 $baseCurrency = ${formatNumber(oneUnitRate, decimalPlaces)} $targetCurrency",
+                text = if (rate != null) {
+                    "1 $baseCurrency = ${formatNumber(rate, decimalPlaces)} $targetCurrency"
+                } else {
+                    "Rate not available for this currency pair"
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -355,10 +322,56 @@ private fun CurrencyResultCard(
 }
 
 @Composable
+private fun RateSourceCard(
+    uiState: CurrencyUiState,
+    onRefreshRates: () -> Unit
+) {
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Live rate source",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = "Exchange rates are loaded from the Frankfurter API.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            if (uiState.rateDate.isNotBlank()) {
+                Text(
+                    text = "Latest available date: ${uiState.rateDate}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            if (uiState.isLoading) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CircularProgressIndicator(modifier = Modifier.width(18.dp), strokeWidth = 2.dp)
+                    Text("Refreshing rates...")
+                }
+            }
+            uiState.errorMessage?.let { message ->
+                Text(
+                    text = "Error: $message",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Button(onClick = onRefreshRates) {
+                Text("Refresh rates")
+            }
+        }
+    }
+}
+
+@Composable
 private fun SettingsScreen(
-    baseCurrency: String,
-    targetCurrencies: Set<String>,
-    decimalPlaces: Int,
+    uiState: CurrencyUiState,
     onBaseCurrencyChange: (String) -> Unit,
     onTargetCurrencyToggle: (String) -> Unit,
     onDecimalPlacesChange: (Int) -> Unit,
@@ -373,14 +386,14 @@ private fun SettingsScreen(
     ) {
         SettingsSection(title = "Base currency") {
             CurrencyChipRow(
-                selectedCurrencies = setOf(baseCurrency),
+                selectedCurrencies = setOf(uiState.baseCurrency),
                 onCurrencyClick = onBaseCurrencyChange
             )
         }
 
         SettingsSection(title = "Target currencies") {
             CurrencyChipRow(
-                selectedCurrencies = targetCurrencies,
+                selectedCurrencies = uiState.targetCurrencies,
                 onCurrencyClick = onTargetCurrencyToggle
             )
         }
@@ -389,7 +402,7 @@ private fun SettingsScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(0, 2, 4).forEach { option ->
                     FilterChip(
-                        selected = decimalPlaces == option,
+                        selected = uiState.decimalPlaces == option,
                         onClick = { onDecimalPlacesChange(option) },
                         label = { Text(option.toString()) }
                     )
@@ -410,9 +423,9 @@ private fun SettingsScreen(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
-                Text("Base: $baseCurrency")
-                Text("Targets: ${targetCurrencies.displayText()}")
-                Text("Decimals: $decimalPlaces")
+                Text("Base: ${uiState.baseCurrency}")
+                Text("Targets: ${uiState.targetCurrencies.displayText()}")
+                Text("Decimals: ${uiState.decimalPlaces}")
             }
         }
     }
@@ -470,27 +483,6 @@ private fun CurrencyChipRow(
             }
         }
     }
-}
-
-private fun String.cleanCurrencyInput(): String {
-    val filtered = filter { it.isDigit() || it == '.' }
-    val firstDecimal = filtered.indexOf('.')
-    return if (firstDecimal == -1) {
-        filtered
-    } else {
-        filtered.take(firstDecimal + 1) +
-            filtered.drop(firstDecimal + 1).replace(".", "")
-    }
-}
-
-private fun convertCurrency(
-    amount: Double,
-    baseCurrency: String,
-    targetCurrency: String
-): Double {
-    val baseUsdValue = usdValuePerUnit[baseCurrency] ?: 1.0
-    val targetUsdValue = usdValuePerUnit[targetCurrency] ?: 1.0
-    return amount * baseUsdValue / targetUsdValue
 }
 
 private fun formatCurrency(

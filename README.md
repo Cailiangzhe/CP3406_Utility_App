@@ -44,16 +44,16 @@ Current progress:
 - Project connected to GitHub.
 - Project structure fixed so GitHub shows the Android project files at the repository root.
 - Initial README added.
+- Basic Currency screen and Settings screen UI added.
+- State management added for amount, selected currencies, and display options.
+- Frankfurter API integration added using Retrofit.
+- Repository and ViewModel classes added.
+- Loading, refresh, and error states added for exchange rate data.
 
 Pending work:
 
-- Build the Currency screen UI.
-- Build the Settings screen UI.
-- Add state management for amount, selected currencies, and display options.
-- Add Frankfurter API integration using Retrofit.
-- Add repository and ViewModel classes.
 - Refine the user interface using Material Design 3.
-- Test loading, success, and error states.
+- Test the app on an emulator or physical Android device.
 - Write the self-reflection for the assignment submission.
 
 ## GitHub Progress
