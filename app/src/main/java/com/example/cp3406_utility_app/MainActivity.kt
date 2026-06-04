@@ -62,7 +62,24 @@ private enum class AppTab {
     Settings
 }
 
-private val supportedCurrencies = listOf("AUD", "USD", "CNY", "SGD", "EUR", "JPY")
+private val supportedCurrencies = listOf(
+    "AUD",
+    "USD",
+    "CNY",
+    "SGD",
+    "EUR",
+    "JPY",
+    "GBP",
+    "CAD",
+    "NZD",
+    "HKD",
+    "KRW",
+    "THB",
+    "MYR",
+    "IDR",
+    "INR",
+    "PHP"
+)
 
 private val currencyLabels = mapOf(
     "AUD" to "Australian dollar",
@@ -70,7 +87,17 @@ private val currencyLabels = mapOf(
     "CNY" to "Chinese yuan",
     "SGD" to "Singapore dollar",
     "EUR" to "Euro",
-    "JPY" to "Japanese yen"
+    "JPY" to "Japanese yen",
+    "GBP" to "British pound",
+    "CAD" to "Canadian dollar",
+    "NZD" to "New Zealand dollar",
+    "HKD" to "Hong Kong dollar",
+    "KRW" to "South Korean won",
+    "THB" to "Thai baht",
+    "MYR" to "Malaysian ringgit",
+    "IDR" to "Indonesian rupiah",
+    "INR" to "Indian rupee",
+    "PHP" to "Philippine peso"
 )
 
 private val usdValuePerUnit = mapOf(
@@ -79,7 +106,17 @@ private val usdValuePerUnit = mapOf(
     "CNY" to 0.14,
     "SGD" to 0.74,
     "EUR" to 1.08,
-    "JPY" to 0.0064
+    "JPY" to 0.0064,
+    "GBP" to 1.27,
+    "CAD" to 0.73,
+    "NZD" to 0.61,
+    "HKD" to 0.128,
+    "KRW" to 0.00073,
+    "THB" to 0.027,
+    "MYR" to 0.21,
+    "IDR" to 0.000061,
+    "INR" to 0.012,
+    "PHP" to 0.017
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -90,7 +127,7 @@ fun CurrencyTravelHelperApp() {
     var baseCurrency by rememberSaveable { mutableStateOf("AUD") }
     var decimalPlaces by rememberSaveable { mutableStateOf(2) }
     var targetCurrencies by remember {
-        mutableStateOf(setOf("USD", "CNY", "SGD", "JPY"))
+        mutableStateOf(setOf("USD", "CNY", "SGD", "JPY", "EUR", "GBP"))
     }
 
     Scaffold(
@@ -129,6 +166,7 @@ fun CurrencyTravelHelperApp() {
                 targetCurrencies = targetCurrencies,
                 decimalPlaces = decimalPlaces,
                 onAmountChange = { amountText = it.cleanCurrencyInput() },
+                onBaseCurrencyChange = { baseCurrency = it },
                 onQuickAmountSelected = { amountText = it },
                 modifier = Modifier.padding(innerPadding)
             )
@@ -159,6 +197,7 @@ private fun CurrencyScreen(
     targetCurrencies: Set<String>,
     decimalPlaces: Int,
     onAmountChange: (String) -> Unit,
+    onBaseCurrencyChange: (String) -> Unit,
     onQuickAmountSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -187,6 +226,15 @@ private fun CurrencyScreen(
                     text = "Travel budget",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "From currency",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                CurrencyPickerRow(
+                    selectedCurrency = baseCurrency,
+                    onCurrencyClick = onBaseCurrencyChange
                 )
                 OutlinedTextField(
                     value = amountText,
@@ -363,7 +411,7 @@ private fun SettingsScreen(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text("Base: $baseCurrency")
-                Text("Targets: ${targetCurrencies.sorted().joinToString()}")
+                Text("Targets: ${targetCurrencies.displayText()}")
                 Text("Decimals: $decimalPlaces")
             }
         }
@@ -382,6 +430,25 @@ private fun SettingsSection(
             fontWeight = FontWeight.SemiBold
         )
         content()
+    }
+}
+
+@Composable
+private fun CurrencyPickerRow(
+    selectedCurrency: String,
+    onCurrencyClick: (String) -> Unit
+) {
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        supportedCurrencies.forEach { currency ->
+            FilterChip(
+                selected = selectedCurrency == currency,
+                onClick = { onCurrencyClick(currency) },
+                label = { Text(currency) }
+            )
+        }
     }
 }
 
@@ -438,6 +505,9 @@ private fun formatNumber(amount: Double, decimalPlaces: Int): String {
     formatter.maximumFractionDigits = decimalPlaces
     return formatter.format(amount)
 }
+
+private fun Set<String>.displayText(): String =
+    if (isEmpty()) "None" else sorted().joinToString()
 
 @Preview(showBackground = true)
 @Composable
