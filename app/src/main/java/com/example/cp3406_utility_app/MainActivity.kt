@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -37,12 +39,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.cp3406_utility_app.data.HistoricalRatePoint
 import com.example.cp3406_utility_app.ui.CurrencyUiState
 import com.example.cp3406_utility_app.ui.CurrencyViewModel
 import com.example.cp3406_utility_app.ui.theme.CP3406_Utility_AppTheme
@@ -146,6 +153,7 @@ fun CurrencyTravelHelperApp() {
                 onAmountChange = currencyViewModel::updateAmount,
                 onBaseCurrencyChange = currencyViewModel::updateBaseCurrency,
                 onQuickAmountSelected = currencyViewModel::updateAmount,
+                onChartCurrencyChange = currencyViewModel::updateChartCurrency,
                 onRefreshRates = currencyViewModel::refreshRates,
                 modifier = Modifier.padding(innerPadding)
             )
@@ -167,6 +175,7 @@ private fun CurrencyScreen(
     onAmountChange: (String) -> Unit,
     onBaseCurrencyChange: (String) -> Unit,
     onQuickAmountSelected: (String) -> Unit,
+    onChartCurrencyChange: (String) -> Unit,
     onRefreshRates: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -226,6 +235,11 @@ private fun CurrencyScreen(
             }
         }
 
+        ExchangeRateTrendCard(
+            uiState = uiState,
+            onChartCurrencyChange = onChartCurrencyChange
+        )
+
         Text(
             text = "Converted values",
             style = MaterialTheme.typography.titleMedium,
@@ -259,6 +273,186 @@ private fun CurrencyScreen(
             uiState = uiState,
             onRefreshRates = onRefreshRates
         )
+    }
+}
+
+@Composable
+private fun ExchangeRateTrendCard(
+    uiState: CurrencyUiState,
+    onChartCurrencyChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val visibleTargets = uiState.visibleTargetCurrencies
+    val chartCurrency = uiState.chartCurrency
+    val points = uiState.chartPoints
+    val latestPoint = points.lastOrNull()
+    val minRate = points.minOfOrNull { it.rate }
+    val maxRate = points.maxOfOrNull { it.rate }
+
+    OutlinedCard(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "30-day exchange trend",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = if (chartCurrency.isNotBlank()) {
+                            "1 ${uiState.baseCurrency} to $chartCurrency"
+                        } else {
+                            "Select a target currency to view history"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            if (visibleTargets.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    visibleTargets.forEach { currency ->
+                        FilterChip(
+                            selected = chartCurrency == currency,
+                            onClick = { onChartCurrencyChange(currency) },
+                            label = { Text(currency) }
+                        )
+                    }
+                }
+            }
+
+            when {
+                uiState.isChartLoading -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.width(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Text("Loading rate history...")
+                    }
+                }
+
+                uiState.chartErrorMessage != null -> {
+                    Text(
+                        text = "Chart error: ${uiState.chartErrorMessage}",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+                points.size < 2 -> {
+                    Text(
+                        text = "Not enough historical data for this currency pair yet.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+                else -> {
+                    RateLineChart(
+                        points = points,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp)
+                    )
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = points.first().date,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = points.last().date,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (latestPoint != null && minRate != null && maxRate != null) {
+                        Text(
+                            text = "Latest: ${formatNumber(latestPoint.rate, uiState.decimalPlaces)} $chartCurrency | Low: ${
+                                formatNumber(minRate, uiState.decimalPlaces)
+                            } | High: ${formatNumber(maxRate, uiState.decimalPlaces)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RateLineChart(
+    points: List<HistoricalRatePoint>,
+    modifier: Modifier = Modifier
+) {
+    val lineColor = MaterialTheme.colorScheme.primary
+    val pointColor = MaterialTheme.colorScheme.tertiary
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
+
+    Canvas(modifier = modifier) {
+        if (points.size < 2 || size.width <= 0f || size.height <= 0f) {
+            return@Canvas
+        }
+
+        val rates = points.map { it.rate }
+        val minRate = rates.minOrNull() ?: return@Canvas
+        val maxRate = rates.maxOrNull() ?: return@Canvas
+        val rateRange = (maxRate - minRate).takeIf { it > 0.0 } ?: 1.0
+        val horizontalPadding = 8.dp.toPx()
+        val verticalPadding = 12.dp.toPx()
+        val chartWidth = (size.width - horizontalPadding * 2).coerceAtLeast(1f)
+        val chartHeight = (size.height - verticalPadding * 2).coerceAtLeast(1f)
+
+        repeat(3) { index ->
+            val y = verticalPadding + chartHeight * index / 2f
+            drawLine(
+                color = gridColor,
+                start = Offset(horizontalPadding, y),
+                end = Offset(size.width - horizontalPadding, y),
+                strokeWidth = 1.dp.toPx()
+            )
+        }
+
+        val path = Path()
+        val coordinates = points.mapIndexed { index, point ->
+            val x = horizontalPadding + chartWidth * index / (points.lastIndex).coerceAtLeast(1)
+            val y = verticalPadding + ((maxRate - point.rate) / rateRange).toFloat() * chartHeight
+            Offset(x, y)
+        }
+
+        coordinates.forEachIndexed { index, offset ->
+            if (index == 0) {
+                path.moveTo(offset.x, offset.y)
+            } else {
+                path.lineTo(offset.x, offset.y)
+            }
+        }
+
+        drawPath(
+            path = path,
+            color = lineColor,
+            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+        )
+
+        coordinates.lastOrNull()?.let { lastPoint ->
+            drawCircle(
+                color = pointColor,
+                radius = 4.dp.toPx(),
+                center = lastPoint
+            )
+        }
     }
 }
 

@@ -9,6 +9,14 @@ interface FrankfurterApiService {
         @Query("base") base: String,
         @Query("quotes") quotes: String
     ): List<ExchangeRateDto>
+
+    @GET("v2/rates")
+    suspend fun getHistoricalRates(
+        @Query("from") from: String,
+        @Query("to") to: String,
+        @Query("base") base: String,
+        @Query("quotes") quotes: String
+    ): List<ExchangeRateDto>
 }
 
 data class ExchangeRateDto(

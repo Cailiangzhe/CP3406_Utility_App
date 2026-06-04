@@ -49,6 +49,7 @@ Current progress:
 - Frankfurter API integration added using Retrofit.
 - Repository and ViewModel classes added.
 - Loading, refresh, and error states added for exchange rate data.
+- Live 30-day exchange rate trend chart added for selected currency pairs.
 
 Pending work:
 
