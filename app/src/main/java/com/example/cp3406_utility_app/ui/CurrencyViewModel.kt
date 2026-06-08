@@ -25,6 +25,7 @@ data class CurrencyUiState(
     val rates: Map<String, Double> = emptyMap(),
     val rateDate: String = "",
     val chartCurrency: String = "USD",
+    val chartRangeDays: Int = 30,
     val chartPoints: List<HistoricalRatePoint> = emptyList(),
     val isLoading: Boolean = false,
     val isChartLoading: Boolean = false,
@@ -86,6 +87,11 @@ class CurrencyViewModel(
         refreshRates()
     }
 
+    fun updateChartRange(days: Int) {
+        _uiState.update { it.copy(chartRangeDays = days) }
+        refreshRates()
+    }
+
     fun refreshRates() {
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
@@ -109,7 +115,7 @@ class CurrencyViewModel(
             }
 
             val chartCurrency = currentState.chartCurrency.takeIf { it in targets } ?: targets.first()
-            val fromDate = formattedDateDaysAgo(30)
+            val fromDate = formattedDateDaysAgo(currentState.chartRangeDays)
             val toDate = formattedDateDaysAgo(0)
 
             _uiState.update {

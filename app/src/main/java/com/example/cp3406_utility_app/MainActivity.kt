@@ -154,6 +154,7 @@ fun CurrencyTravelHelperApp() {
                 onBaseCurrencyChange = currencyViewModel::updateBaseCurrency,
                 onQuickAmountSelected = currencyViewModel::updateAmount,
                 onChartCurrencyChange = currencyViewModel::updateChartCurrency,
+                onChartRangeChange = currencyViewModel::updateChartRange,
                 onRefreshRates = currencyViewModel::refreshRates,
                 modifier = Modifier.padding(innerPadding)
             )
@@ -176,6 +177,7 @@ private fun CurrencyScreen(
     onBaseCurrencyChange: (String) -> Unit,
     onQuickAmountSelected: (String) -> Unit,
     onChartCurrencyChange: (String) -> Unit,
+    onChartRangeChange: (Int) -> Unit,
     onRefreshRates: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -237,7 +239,8 @@ private fun CurrencyScreen(
 
         ExchangeRateTrendCard(
             uiState = uiState,
-            onChartCurrencyChange = onChartCurrencyChange
+            onChartCurrencyChange = onChartCurrencyChange,
+            onChartRangeChange = onChartRangeChange
         )
 
         Text(
@@ -280,6 +283,7 @@ private fun CurrencyScreen(
 private fun ExchangeRateTrendCard(
     uiState: CurrencyUiState,
     onChartCurrencyChange: (String) -> Unit,
+    onChartRangeChange: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val visibleTargets = uiState.visibleTargetCurrencies
@@ -288,6 +292,7 @@ private fun ExchangeRateTrendCard(
     val latestPoint = points.lastOrNull()
     val minRate = points.minOfOrNull { it.rate }
     val maxRate = points.maxOfOrNull { it.rate }
+    val changePercent = points.rateChangePercent()
 
     OutlinedCard(
         modifier = modifier.fillMaxWidth(),
@@ -300,7 +305,7 @@ private fun ExchangeRateTrendCard(
             Row(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "30-day exchange trend",
+                        text = "${uiState.chartRangeDays}-day exchange trend",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -312,6 +317,16 @@ private fun ExchangeRateTrendCard(
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(7, 30, 90).forEach { days ->
+                    FilterChip(
+                        selected = uiState.chartRangeDays == days,
+                        onClick = { onChartRangeChange(days) },
+                        label = { Text("${days}D") }
                     )
                 }
             }
@@ -378,12 +393,26 @@ private fun ExchangeRateTrendCard(
                         )
                     }
                     if (latestPoint != null && minRate != null && maxRate != null) {
+                        val changeText = changePercent?.let {
+                            "${uiState.chartRangeDays}D change: ${formatPercent(it)}"
+                        } ?: "${uiState.chartRangeDays}D change: unavailable"
+                        val changeColor = when {
+                            changePercent == null -> MaterialTheme.colorScheme.onSurfaceVariant
+                            changePercent >= 0.0 -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.error
+                        }
                         Text(
                             text = "Latest: ${formatNumber(latestPoint.rate, uiState.decimalPlaces)} $chartCurrency | Low: ${
                                 formatNumber(minRate, uiState.decimalPlaces)
                             } | High: ${formatNumber(maxRate, uiState.decimalPlaces)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = changeText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = changeColor,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
@@ -690,6 +719,18 @@ private fun formatNumber(amount: Double, decimalPlaces: Int): String {
     formatter.minimumFractionDigits = decimalPlaces
     formatter.maximumFractionDigits = decimalPlaces
     return formatter.format(amount)
+}
+
+private fun formatPercent(percent: Double): String {
+    val sign = if (percent > 0.0) "+" else ""
+    return "$sign${formatNumber(percent, 2)}%"
+}
+
+private fun List<HistoricalRatePoint>.rateChangePercent(): Double? {
+    val firstRate = firstOrNull()?.rate ?: return null
+    val latestRate = lastOrNull()?.rate ?: return null
+    if (firstRate == 0.0) return null
+    return (latestRate - firstRate) / firstRate * 100.0
 }
 
 private fun Set<String>.displayText(): String =
