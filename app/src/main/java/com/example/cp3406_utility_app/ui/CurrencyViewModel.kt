@@ -17,6 +17,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+enum class AppThemeMode(val label: String) {
+    System("System"),
+    Light("Light"),
+    Dark("Dark")
+}
+
 data class CurrencyUiState(
     val amountText: String = "100",
     val baseCurrency: String = "AUD",
@@ -30,7 +36,8 @@ data class CurrencyUiState(
     val isLoading: Boolean = false,
     val isChartLoading: Boolean = false,
     val chartErrorMessage: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val themeMode: AppThemeMode = AppThemeMode.System
 ) {
     val visibleTargetCurrencies: List<String>
         get() = targetCurrencies.filter { it != baseCurrency }.sorted()
@@ -80,6 +87,10 @@ class CurrencyViewModel(
 
     fun updateDecimalPlaces(decimalPlaces: Int) {
         _uiState.update { it.copy(decimalPlaces = decimalPlaces) }
+    }
+
+    fun updateThemeMode(themeMode: AppThemeMode) {
+        _uiState.update { it.copy(themeMode = themeMode) }
     }
 
     fun updateChartCurrency(currency: String) {

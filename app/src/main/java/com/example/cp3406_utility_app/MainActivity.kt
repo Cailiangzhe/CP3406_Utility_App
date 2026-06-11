@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,6 +52,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cp3406_utility_app.data.HistoricalRatePoint
+import com.example.cp3406_utility_app.ui.AppThemeMode
 import com.example.cp3406_utility_app.ui.CurrencyUiState
 import com.example.cp3406_utility_app.ui.CurrencyViewModel
 import com.example.cp3406_utility_app.ui.theme.CP3406_Utility_AppTheme
@@ -61,9 +64,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            CP3406_Utility_AppTheme {
-                CurrencyTravelHelperApp()
-            }
+            CurrencyTravelHelperApp()
         }
     }
 }
@@ -116,8 +117,31 @@ private val currencyLabels = mapOf(
 fun CurrencyTravelHelperApp() {
     val currencyViewModel: CurrencyViewModel = viewModel(factory = CurrencyViewModel.Factory)
     val uiState by currencyViewModel.uiState.collectAsState()
+    val darkTheme = when (uiState.themeMode) {
+        AppThemeMode.System -> isSystemInDarkTheme()
+        AppThemeMode.Light -> false
+        AppThemeMode.Dark -> true
+    }
     var selectedTab by rememberSaveable { mutableStateOf(AppTab.Currency) }
 
+    CP3406_Utility_AppTheme(darkTheme = darkTheme) {
+        CurrencyTravelHelperScaffold(
+            uiState = uiState,
+            currencyViewModel = currencyViewModel,
+            selectedTab = selectedTab,
+            onTabSelected = { selectedTab = it }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CurrencyTravelHelperScaffold(
+    uiState: CurrencyUiState,
+    currencyViewModel: CurrencyViewModel,
+    selectedTab: AppTab,
+    onTabSelected: (AppTab) -> Unit
+) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -134,13 +158,13 @@ fun CurrencyTravelHelperApp() {
             NavigationBar {
                 NavigationBarItem(
                     selected = selectedTab == AppTab.Currency,
-                    onClick = { selectedTab = AppTab.Currency },
+                    onClick = { onTabSelected(AppTab.Currency) },
                     icon = { Text("C") },
                     label = { Text("Currency") }
                 )
                 NavigationBarItem(
                     selected = selectedTab == AppTab.Settings,
-                    onClick = { selectedTab = AppTab.Settings },
+                    onClick = { onTabSelected(AppTab.Settings) },
                     icon = { Text("S") },
                     label = { Text("Settings") }
                 )
@@ -164,6 +188,7 @@ fun CurrencyTravelHelperApp() {
                 onBaseCurrencyChange = currencyViewModel::updateBaseCurrency,
                 onTargetCurrencyToggle = currencyViewModel::toggleTargetCurrency,
                 onDecimalPlacesChange = currencyViewModel::updateDecimalPlaces,
+                onThemeModeChange = currencyViewModel::updateThemeMode,
                 modifier = Modifier.padding(innerPadding)
             )
         }
@@ -350,7 +375,7 @@ private fun ExchangeRateTrendCard(
                 uiState.isChartLoading -> {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         CircularProgressIndicator(
-                            modifier = Modifier.width(18.dp),
+                            modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp
                         )
                         Text("Loading rate history...")
@@ -574,7 +599,10 @@ private fun RateSourceCard(
             }
             if (uiState.isLoading) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CircularProgressIndicator(modifier = Modifier.width(18.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
                     Text("Refreshing rates...")
                 }
             }
@@ -598,6 +626,7 @@ private fun SettingsScreen(
     onBaseCurrencyChange: (String) -> Unit,
     onTargetCurrencyToggle: (String) -> Unit,
     onDecimalPlacesChange: (Int) -> Unit,
+    onThemeModeChange: (AppThemeMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -633,6 +662,18 @@ private fun SettingsScreen(
             }
         }
 
+        SettingsSection(title = "Appearance") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppThemeMode.entries.forEach { mode ->
+                    FilterChip(
+                        selected = uiState.themeMode == mode,
+                        onClick = { onThemeModeChange(mode) },
+                        label = { Text(mode.label) }
+                    )
+                }
+            }
+        }
+
         OutlinedCard(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(8.dp)
@@ -649,6 +690,7 @@ private fun SettingsScreen(
                 Text("Base: ${uiState.baseCurrency}")
                 Text("Targets: ${uiState.targetCurrencies.displayText()}")
                 Text("Decimals: ${uiState.decimalPlaces}")
+                Text("Theme: ${uiState.themeMode.label}")
             }
         }
     }

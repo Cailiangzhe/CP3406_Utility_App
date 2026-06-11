@@ -51,6 +51,7 @@ Current progress:
 - Loading, refresh, and error states added for exchange rate data.
 - Live 30-day exchange rate trend chart added for selected currency pairs.
 - Chart range selection added for 7D, 30D, and 90D views with percentage change.
+- Appearance setting added for System, Light, and Dark theme modes.
 
 Pending work:
 
