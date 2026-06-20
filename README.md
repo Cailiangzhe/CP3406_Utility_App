@@ -1,64 +1,77 @@
 # Currency Travel Helper
 
-Currency Travel Helper is a planned Android utility app for CP3406 Assignment 1. The app is designed to help users quickly convert a travel budget from one currency into several other currencies using current exchange rate data.
+Currency Travel Helper is an Android utility app created for CP3406 Assignment 1. The app helps travellers convert a budget between multiple currencies using live exchange rate data.
 
-The goal of the app is to provide focused, at-a-glance information. Users should be able to open the app, enter or select a travel amount, and immediately see the approximate value in their chosen target currencies.
+The app is designed for quick travel planning. Users can enter an amount, choose a base currency, select one or more target currencies, and view converted values immediately. It also includes a live exchange rate trend chart so users can understand recent currency movement before making travel budget decisions.
 
 ## Core Features
 
-The planned app will include:
-
-- A base currency and amount displayed clearly on the main screen.
-- Exchange rate results for selected target currencies.
-- Quick amount options for common travel budget checks, such as 50, 100, and 500.
-- The latest available exchange rate date returned by the API.
-- A settings screen for changing base currency, target currencies, decimal places, and quick amount options.
+- Convert an entered amount from one selected base currency to multiple target currencies.
+- Choose from a range of common currencies, including AUD, USD, EUR, GBP, JPY, CNY, SGD, NZD, CAD, CHF, HKD, KRW, INR, THB, MYR, IDR, PHP, ZAR, SEK, NOK, DKK, PLN, CZK, HUF, MXN, BRL, and TRY.
+- Use quick amount buttons for common travel budget checks.
+- Fetch live exchange rates from the Frankfurter API.
+- Display the latest available exchange rate date returned by the API.
+- Show loading and error states when exchange rate data is being requested or cannot be loaded.
+- View a live exchange rate trend chart for selected currency pairs.
+- Switch the chart between 7-day, 30-day, and 90-day ranges.
+- Display the percentage change for the selected chart range.
+- Adjust decimal display settings.
+- Change appearance mode between System, Light, and Dark themes.
 
 ## Screens
 
-Currency Travel Helper will use a simple two-screen structure:
+The app uses a simple two-screen structure:
 
-- **Currency screen**: shows the selected amount, base currency, converted values, exchange rate date, loading state, and error message if exchange rates cannot be loaded.
-- **Settings screen**: lets the user adjust preferences that affect the currency screen.
+- **Currency screen**: shows the entered amount, selected base currency, converted target currency values, latest rate date, refresh state, error messages, and exchange rate trend chart.
+- **Settings screen**: lets the user change the base currency, selected target currencies, decimal places, quick amount behaviour, chart range, and app appearance.
 
-The assignment does not require settings to be persistent, so the first implementation may keep settings only while the app is running.
+## Technology
 
-## Technical Plan
-
-The app is planned to use the following Android technologies and development practices:
+This project uses:
 
 - Kotlin
 - Jetpack Compose
 - Material Design 3
 - ViewModel for UI state management
 - Repository pattern for exchange rate data handling
-- Dependency injection for connecting the API service, repository, and ViewModel
-- Retrofit for web API requests
-- Frankfurter API for exchange rate data
+- Retrofit for API requests
+- Kotlin serialization for JSON parsing
+- Frankfurter API for live exchange rate data
 
-## Development Status
+## API
 
-Current progress:
+The app uses the Frankfurter API to retrieve current and historical exchange rate data.
 
-- Blank Android project created.
-- Project connected to GitHub.
+- Latest rates are used for currency conversion.
+- Historical rates are used to build the exchange rate trend chart.
+
+If the API request fails, the app shows an error state instead of silently displaying incorrect data.
+
+## How to Run
+
+1. Open the project in Android Studio.
+2. Let Gradle sync the project.
+3. Run the app on an Android emulator or physical Android device.
+4. Make sure the device has internet access so live exchange rates and chart data can load.
+
+## Development Progress
+
+Implemented features:
+
+- Android project created and connected to GitHub.
 - Project structure fixed so GitHub shows the Android project files at the repository root.
-- Initial README added.
-- Basic Currency screen and Settings screen UI added.
-- State management added for amount, selected currencies, and display options.
-- Frankfurter API integration added using Retrofit.
+- Main currency conversion interface built with Jetpack Compose.
+- Settings screen added.
+- Selectable base and target currencies added.
+- Live exchange rate API integration added.
 - Repository and ViewModel classes added.
-- Loading, refresh, and error states added for exchange rate data.
-- Live 30-day exchange rate trend chart added for selected currency pairs.
-- Chart range selection added for 7D, 30D, and 90D views with percentage change.
-- Appearance setting added for System, Light, and Dark theme modes.
+- Loading, refresh, and error states added.
+- Live exchange rate trend chart added.
+- Chart range selection added for 7D, 30D, and 90D views.
+- Percentage change summary added for chart data.
+- System, Light, and Dark appearance modes added.
+- Self-reflection document prepared for assignment submission.
 
-Pending work:
+## Repository
 
-- Refine the user interface using Material Design 3.
-- Test the app on an emulator or physical Android device.
-- Write the self-reflection for the assignment submission.
-
-## GitHub Progress
-
-This repository will be updated regularly as features are implemented. Commits will be used to show continuous progress through the planning, interface design, API integration, testing, and refinement stages of the assignment.
+This repository records the development progress for CP3406 Assignment 1 through regular commits, including project setup, UI development, API integration, chart functionality, theme support, and documentation updates.
